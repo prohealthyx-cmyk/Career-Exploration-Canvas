@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Career Exploration Canvas</title>
+  <style>
+    :root{--bg:#f7f7fb;--card:#ffffff;--text:#1f2937;--muted:#6b7280;--brand:#2563eb;--line:#e5e7eb;--accent:#f1f5f9}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    header h1{margin:0 0 6px 0;font-size:24px}
+    header p{margin:0;color:var(--muted)}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    button{appearance:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
+    button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+    button.ghost{background:transparent}
+    button.danger{background:#ef4444;color:#fff;border-color:#ef4444}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    .tab{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+    .tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .progress{height:8px;background:var(--line);border-radius:999px;overflow:hidden;margin-top:8px}
+    .progress > div{height:100%;background:var(--brand);width:0%}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+    .row{display:flex;gap:8px}
+    .row > *{flex:1}
+    input,textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+    textarea{min-height:90px}
+    .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--accent);border-radius:999px;padding:6px 10px;margin:4px 6px 0 0}
+    .grid{display:grid;gap:12px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-top:1px solid var(--line);padding:10px;text-align:left}
+    th{background:var(--accent)}
+    .stars button{border:none;background:none;font-size:18px;line-height:1;cursor:pointer}
+    .stars .on{color:#f59e0b}
+    .stars .off{color:#d1d5db}
+    .hint{color:var(--muted);font-size:14px}
+    .footer{display:flex;justify-content:space-between;margin-top:16px}
+  </style>
+  <!-- React + ReactDOM + Babel (for JSX in browser) -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div class="wrap" id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const STORAGE = "cec_store_v3";
+    const uid = () => Math.random().toString(36).slice(2,9);
+    const emptyStore = () => ({ step:1, answers:{}, options:[], criteria:[], ratings:{}, plan:[] });
+
+    function App(){
+      const [store, setStore] = useState(()=> {
+        try{ const raw = localStorage.getItem(STORAGE); return raw? JSON.parse(raw) : emptyStore(); } catch { return emptyStore(); }
+      });
+      useEffect(()=>{ try{ localStorage.setItem(STORAGE, JSON.stringify(store)); }catch{} }, [store]);
+
+      const progress = useMemo(()=> (store.step/4)*100, [store.step]);
+
+      const totals = useMemo(()=>{
+        const rows = store.options.map(opt=>{
+          const r = store.ratings[opt.id] || {};
+          let score = 0, wsum = 0;
+          for(const c of store.criteria){
+            const v = r[c.id] ?? 0;
+            const w = (c.weight||0)/100;
+            score += v*w; wsum += w;
+          }
+          const normalized = wsum>0 ? score/wsum : 0;
+          return { id: opt.id, title: opt.title, score: Number(normalized.toFixed(2)) };
+        });
+        return rows.sort((a,b)=>b.score-a.score);
+      }, [store.options, store.criteria, store.ratings]);
+
+      const setStep = s => setStore(st=>({...st, step:s}));
+      const nextStep = () => setStore(st=>({...st, step: st.step<4 ? st.step+1 : st.step}));
+
+      const setAnswer = (id,v)=> setStore(st=>({...st, answers:{...st.answers, [id]:v}}));
+      const addOption = (title) => {
+        if(!String(title).trim()) return;
+        const id = uid();
+        setStore(st=>({
+          ...st,
+          options:[...st.options, {id, title:title.trim()}],
+          ratings:{...st.ratings, [id]:{}},
+          plan:[...st.plan, { optionId:id, selected:false, essence:"", firstStep:"" }]
+        }));
+      };
+      const removeOption = id => setStore(st=>({
+        ...st,
+        options: st.options.filter(o=>o.id!==id),
+        ratings: Object.fromEntries(Object.entries(st.ratings).filter(([k])=>k!==id)),
+        plan: st.plan.filter(p=>p.optionId!==id),
+      }));
+      const addCriterion = name => {
+        if(!String(name).trim()) return;
+        const id = uid();
+        setStore(st=>({...st, criteria:[...st.criteria, {id, name:name.trim(), weight:20}]}));
+      };
+      const removeCriterion = id => setStore(st=>({...st, criteria: st.criteria.filter(c=>c.id!==id)}));
+      const setWeight = (id,w) => setStore(st=>({...st, criteria: st.criteria.map(c=>c.id===id? {...c, weight:w} : c)}));
+      const setRating = (optId, critId, v) => setStore(st=>({...st, ratings:{...st.ratings, [optId]:{...(st.ratings[optId]||{}), [critId]:v}}}));
+      const setPlan = (optId, patch) => setStore(st=>({...st, plan: st.plan.map(p=>p.optionId===optId? {...p, ...patch} : p)}));
+
+      const exportJson = () => {
+        const data = JSON.stringify(store,null,2);
+        const blob = new Blob([data], {type:"application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "career_exploration_canvas.json"; a.click();
+        URL.revokeObjectURL(url);
+      };
+      const resetAll = () => setStore(()=> {
+        const fresh = emptyStore();
+        try{ localStorage.setItem(STORAGE, JSON.stringify(fresh)); }catch{}
+        return fresh;
+      });
+
+      return (
+        <>
+          <header>
+            <h1>Career Exploration Canvas</h1>
+            <p className="hint">Guided reflection to expand possibilities, gain clarity, and choose directions.</p>
+            <div className="progress"><div style={{width: progress + "%"}}></div></div>
+            <div className="tabs">
+              <div className={"tab " + (store.step===1?"active":"")} onClick={()=>setStep(1)}>🌍 Step 1</div>
+              <div className={"tab " + (store.step===2?"active":"")} onClick={()=>setStep(2)}>🎯 Step 2</div>
+              <div className={"tab " + (store.step===3?"active":"")} onClick={()=>setStep(3)}>🧭 Step 3</div>
+              <div className={"tab " + (store.step===4?"active":"")} onClick={()=>setStep(4)}>📝 Report</div>
+            </div>
+            <div className="toolbar">
+              <button className="danger" onClick={resetAll}>Reset</button>
+              <button onClick={exportJson}>Export JSON</button>
+            </div>
+          </header>
+
+          {store.step===1 && <Step1 answers={store.answers} setAnswer={setAnswer} options={store.options} addOption={addOption} removeOption={removeOption} nextStep={nextStep} />}
+          {store.step===2 && <Step2 criteria={store.criteria} addCriterion={addCriterion} removeCriterion={removeCriterion} setWeight={setWeight} options={store.options} ratings={store.ratings} setRating={setRating} nextStep={nextStep} />}
+          {store.step===3 && <Step3 options={store.options} plan={store.plan} setPlan={setPlan} totals={totals} nextStep={nextStep} />}
+          {store.step===4 && <Report totals={totals} options={store.options} plan={store.plan} />}
+
+          <div className="footer">
+            <button disabled={store.step===1} onClick={()=>setStep(Math.max(1, store.step-1))}>Back</button>
+            <button className="primary" onClick={()=>setStep(Math.min(4, store.step+1))}>{store.step<4? "Next":"Finish"}</button>
+          </div>
+        </>
+      );
+    }
+
+    function Step1({answers,setAnswer,options,addOption,removeOption,nextStep}){
+      const [text,setText] = useState("");
+      const questions = [
+        "1. What activities make you lose track of time?",
+        "2. If you had to teach something, what would it be?",
+        "3. What work environment stimulates you?",
+        "4. If money wasn't an issue, what would you do for a year?",
+        "5. What problems are you drawn to solve?",
+        "6. What strengths could you apply in new ways?",
+        "7. Who inspires you professionally and why?",
+        "8. Three intriguing directions outside your comfort zone?",
+      ];
+      return (
+        <section className="card">
+          <h3>🌍 Step 1 – Expand the Map</h3>
+          <div className="grid">
+            {questions.map((q,i)=>(
+              <Question key={i} id={`s1-${i+1}`} text={q} value={answers[`s1-${i+1}`]||""} onChange={setAnswer}/>
+            ))}
+            <div className="row">
+              <input value={text} onChange={e=>setText(e.target.value)} placeholder="Add a possible direction..."/>
+              <button onClick={()=>{addOption(text); setText("");}}>Add</button>
+            </div>
+            <div>
+              {options.map(o=>(
+                <span key={o.id} className="badge">
+                  {o.title}
+                  <button className="ghost" onClick={()=>removeOption(o.id)} title="remove">✕</button>
+                </span>
+              ))}
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end"}}>
+              <button className="primary" onClick={nextStep}>Next →</button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Step2({criteria,addCriterion,removeCriterion,setWeight,options,ratings,setRating,nextStep}){
+      const [critName,setCritName] = useState("");
+      return (
+        <section className="card">
+          <h3>🎯 Step 2 – Define Your Criteria</h3>
+          <div className="grid">
+            <div className="row">
+              <input value={critName} onChange={e=>setCritName(e.target.value)} placeholder="Add a criterion..."/>
+              <button onClick={()=>{addCriterion(critName); setCritName("");}}>Add</button>
+            </div>
+
+            {criteria.map(c=>(
+              <div key={c.id} className="row" style={{alignItems:"center"}}>
+                <div style={{flex:"0 0 140px"}}>{c.name}</div>
+                <input type="range" min="0" max="100" step="5" value={c.weight} onChange={e=>setWeight(c.id, Number(e.target.value))}/>
+                <span style={{width:48,textAlign:"right"}}>{c.weight}%</span>
+                <button className="ghost" onClick={()=>removeCriterion(c.id)}>Remove</button>
+              </div>
+            ))}
+
+            <div className="card" style={{padding:0}}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Option</th>
+                    {criteria.map(c=><th key={c.id}>{c.name}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {options.map(o=>(
+                    <tr key={o.id}>
+                      <td>{o.title}</td>
+                      {criteria.map(c=>(
+                        <td key={c.id}>
+                          <Stars value={(ratings[o.id]?.[c.id]||0)} onChange={v=>setRating(o.id,c.id,v)}/>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{display:"flex",justifyContent:"flex-end"}}>
+              <button className="primary" onClick={nextStep}>Next →</button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Step3({options,plan,setPlan,totals,nextStep}){
+      const ranked = totals.slice(0,8);
+      return (
+        <section className="card">
+          <h3>🧭 Step 3 – Converge and Reflect</h3>
+          <div className="grid">
+            {ranked.map(t=>{
+              const p = plan.find(pp=>pp.optionId===t.id) || { optionId:t.id, selected:false, essence:"", firstStep:"" };
+              const title = options.find(o=>o.id===t.id)?.title || t.title;
+              return (
+                <div key={t.id} className="card">
+                  <div className="row" style={{alignItems:"center"}}>
+                    <div style={{fontWeight:600}}>{title}</div>
+                    <label style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
+                      <input type="checkbox" checked={!!p.selected} onChange={e=>setPlan(t.id,{selected:e.target.checked})}/> Select
+                    </label>
+                  </div>
+                  <div className="grid">
+                    <input placeholder="Essence..." value={p.essence} onChange={e=>setPlan(t.id,{essence:e.target.value})}/>
+                    <input placeholder="First small step..." value={p.firstStep} onChange={e=>setPlan(t.id,{firstStep:e.target.value})}/>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{display:"flex",justifyContent:"flex-end"}}>
+              <button className="primary" onClick={nextStep}>Finish →</button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Report({totals, options, plan}){
+      const top4 = totals.slice(0,4);
+      const selected = plan.filter(p=>p.selected).map(p=>({
+        title: options.find(o=>o.id===p.optionId)?.title || "(unnamed)",
+        essence: p.essence,
+        firstStep: p.firstStep
+      }));
+      return (
+        <section className="card">
+          <h3>📝 Report Preview</h3>
+          <div className="grid">
+            <div>
+              <div style={{fontWeight:600, marginBottom:6}}>Top Suggestions</div>
+              <div className="hint">{top4.map(t=>`${t.title} (${t.score.toFixed(2)})`).join(" • ") || "(n/a)"}</div>
+            </div>
+            <div>
+              <div style={{fontWeight:600, marginBottom:6}}>Your Selections</div>
+              {selected.length ? (
+                <ul>
+                  {selected.map((s,i)=>(
+                    <li key={i} style={{marginBottom:8}}>
+                      <div style={{fontWeight:600}}>{s.title}</div>
+                      <div className="hint">Essence: {s.essence || "-"}</div>
+                      <div className="hint">First step: {s.firstStep || "-"}</div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="hint">(No selections made)</div>
+              )}
+            </div>
+            <div>
+              <div style={{fontWeight:600, marginBottom:6}}>All Options & Scores</div>
+              <div className="hint">{totals.map(t=>`${t.title}: ${t.score.toFixed(2)}`).join(" • ") || "(n/a)"}</div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    function Question({id,text,value,onChange}){
+      return (
+        <div className="card">
+          <div style={{fontWeight:600, marginBottom:6}}>{text}</div>
+          <textarea value={value} onChange={e=>onChange(id, e.target.value)} placeholder="Write your response here..."/>
+        </div>
+      );
+    }
+
+    function Stars({value,onChange}){
+      const arr = [1,2,3,4,5];
+      return (
+        <div className="stars">
+          {arr.map(i=>(
+            <button key={i} className={value>=i? "on":"off"} onClick={()=>onChange(i)} aria-label={`rate ${i}`}>
+              ★
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App/>);
+  </script>
+</body>
+</html>
