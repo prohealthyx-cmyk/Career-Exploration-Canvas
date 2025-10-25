@@ -1,121 +1,169 @@
-import React, { useState, useEffect } from 'react';
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Career Exploration Canvas</title>
+  <style>
+    :root{--bg:#f7f7fb;--card:#ffffff;--text:#111827;--muted:#6b7280;--brand:#2563eb;--line:#e5e7eb;--accent:#f1f5f9}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    .wrap{min-height:100vh;max-width:1100px;margin:0 auto;padding:24px}
+    header h1{margin:0 0 6px;font-size:24px}
+    header p{margin:0;color:var(--muted)}
+    .progress{height:8px;background:var(--line);border-radius:999px;overflow:hidden;margin:12px 0}
+    .progress > div{height:100%;background:var(--brand);width:0%}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    .tab{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+    .tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+    .toolbar{display:flex;gap:8px;margin:6px 0 0}
+    button{appearance:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
+    button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+    button.danger{background:#ef4444;color:#fff;border-color:#ef4444}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+    .grid{display:grid;gap:12px}
+    .row{display:flex;gap:8px}
+    .row>*{flex:1}
+    input,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+    textarea{min-height:90px}
+    .hint{color:var(--muted);font-size:14px}
+  </style>
+  <!-- React + ReactDOM + Babel (so JSX works without a build) -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div class="wrap" id="root"></div>
 
-export default function CareerExplorationCanvas() {
-  const STORAGE = 'cec_store_v5';
-  const uid = () => Math.random().toString(36).slice(2, 9);
-  const emptyStore = () => ({ step: 1, answers: {}, options: [], criteria: [], ratings: {}, plan: [] });
-  const [store, setStore] = useState(emptyStore());
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE);
-      if (raw) setStore(JSON.parse(raw));
-    } catch {}
-  }, []);
+    const STORAGE = "cec_store_static_v1";
+    const emptyStore = () => ({ step:1, answers:{} });
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE, JSON.stringify(store));
-    } catch {}
-  }, [store]);
-
-  const progress = (store.step / 4) * 100;
-
-  const resetAll = () => {
-    const fresh = emptyStore();
-    try {
-      localStorage.setItem(STORAGE, JSON.stringify(fresh));
-    } catch {}
-    setStore(fresh);
-  };
-
-  const Question = ({ id, label }) => (
-    <div className="p-4 border rounded-xl bg-white mb-3">
-      <p className="font-medium mb-1">{label}</p>
-      <textarea
-        value={store.answers[id] || ''}
-        onChange={(e) => setStore((st) => ({ ...st, answers: { ...st.answers, [id]: e.target.value } }))}
-        placeholder="Write your response here..."
-        className="w-full p-2 border rounded-lg"
-      />
-    </div>
-  );
-
-  return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-2">Career Exploration Canvas</h1>
-      <p className="text-slate-600 mb-4">
-        Guided reflection to expand possibilities, gain clarity, and choose directions.
-      </p>
-
-      <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-4">
-        <div className="bg-blue-600 h-full" style={{ width: `${progress}%` }} />
-      </div>
-
-      {store.step === 1 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">🌍 Step 1 – Expand the Map</h3>
-          {[
-            'What activities make you lose track of time?',
-            'If you had to teach something, what would it be?',
-            'What work environment stimulates you?',
-            'If money wasn’t an issue, what would you do for a year?',
-            'What problems are you drawn to solve?',
-          ].map((q, i) => (
-            <Question key={i} id={`q${i + 1}`} label={q} />
-          ))}
+    function Question({id,label,answers,setAnswers}) {
+      return (
+        <div className="card">
+          <div style={{fontWeight:600,marginBottom:6}}>{label}</div>
+          <textarea
+            value={answers[id]||""}
+            onChange={e=>setAnswers(a=>({...a,[id]:e.target.value}))}
+            placeholder="Write your response here..."
+          />
         </div>
-      )}
+      );
+    }
 
-      {store.step === 2 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">🎯 Step 2 – Define Your Criteria</h3>
-          <p className="text-slate-600 mb-3 text-sm">
-            Define what truly matters to you. Add your key criteria (e.g., Impact, Growth, Autonomy, Creativity,
-            Balance) and reflect on why they’re important.
-          </p>
-          <Question id="criteria" label="What are your top 5 criteria?" />
-        </div>
-      )}
+    function App(){
+      const [store,setStore] = useState(()=>{
+        try{ const raw = localStorage.getItem(STORAGE); return raw? JSON.parse(raw) : emptyStore(); }
+        catch { return emptyStore(); }
+      });
+      const setStep = (s)=> setStore(st=>({...st, step:s}));
+      const setAnswers = (updater)=> setStore(st=>({...st, answers: typeof updater==="function"? updater(st.answers) : updater}));
 
-      {store.step === 3 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">🧭 Step 3 – Converge and Reflect</h3>
-          <Question id="reflection" label="Which 3 options make you feel most alive?" />
-          <Question id="nextStep" label="What’s one small experiment you can do to explore one of them?" />
-        </div>
-      )}
+      useEffect(()=>{ try{ localStorage.setItem(STORAGE, JSON.stringify(store)); }catch{} }, [store]);
 
-      {store.step === 4 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">📝 Report</h3>
-          <p>Your reflections have been saved locally in your browser.</p>
-          <pre className="bg-slate-50 p-4 rounded-xl text-sm overflow-x-auto">
-            {JSON.stringify(store.answers, null, 2)}
-          </pre>
-        </div>
-      )}
+      const progress = useMemo(()=> (store.step/4)*100, [store.step]);
 
-      <div className="flex justify-between mt-4">
-        <button
-          onClick={() => setStore((st) => ({ ...st, step: Math.max(1, st.step - 1) }))}
-          disabled={store.step === 1}
-          className="px-4 py-2 bg-slate-200 rounded-lg disabled:opacity-50"
-        >
-          Back
-        </button>
-        <div className="flex gap-2">
-          <button onClick={resetAll} className="px-4 py-2 bg-red-500 text-white rounded-lg">
-            Reset
-          </button>
-          <button
-            onClick={() => setStore((st) => ({ ...st, step: Math.min(4, st.step + 1) }))}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-          >
-            {store.step < 4 ? 'Next' : 'Finish'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+      const resetAll = ()=>{
+        const fresh = emptyStore();
+        try{ localStorage.setItem(STORAGE, JSON.stringify(fresh)); }catch{}
+        setStore(fresh);
+      };
+
+      return (
+        <>
+          <header>
+            <h1>Career Exploration Canvas</h1>
+            <p className="hint">Guided reflection to expand possibilities, gain clarity, and choose directions.</p>
+            <div className="progress"><div style={{width: progress + "%"}}></div></div>
+
+            <div className="tabs">
+              {["🌍 Step 1","🎯 Step 2","🧭 Step 3","📝 Report"].map((label,i)=>{
+                const s = i+1; const active = store.step===s;
+                return <div key={s} className={"tab "+(active?"active":"")} onClick={()=>setStep(s)}>{label}</div>;
+              })}
+            </div>
+
+            <div className="toolbar">
+              <button className="danger" onClick={resetAll}>Reset</button>
+            </div>
+          </header>
+
+          {store.step===1 && (
+            <section className="card">
+              <h3>🌍 Step 1 – Expand the Map</h3>
+              <div className="grid">
+                {[
+                  'What activities make you lose track of time?',
+                  'If you had to teach something, what would it be?',
+                  'What work environment stimulates you?',
+                  'If money wasn’t an issue, what would you do for a year?',
+                  'What problems are you drawn to solve?',
+                ].map((q,i)=>(
+                  <Question key={i} id={`s1-${i+1}`} label={q} answers={store.answers} setAnswers={setAnswers}/>
+                ))}
+                <div style={{display:"flex",justifyContent:"flex-end"}}>
+                  <button className="primary" onClick={()=>setStep(2)}>Next →</button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {store.step===2 && (
+            <section className="card">
+              <h3>🎯 Step 2 – Define Your Criteria</h3>
+              <p className="hint">Add the values/constraints that matter (e.g., Impact, Growth, Autonomy, Creativity, Balance) and note why they matter.</p>
+              <div className="grid">
+                <Question id="s2-criteria" label="What are your top 5 criteria?" answers={store.answers} setAnswers={setAnswers}/>
+                <Question id="s2-learn" label="What do you want to learn in 2–3 years?" answers={store.answers} setAnswers={setAnswers}/>
+                <Question id="s2-impact" label="What kind of impact do you want to have?" answers={store.answers} setAnswers={setAnswers}/>
+                <div style={{display:"flex",justifyContent:"space-between"}}>
+                  <button onClick={()=>setStep(1)}>← Back</button>
+                  <button className="primary" onClick={()=>setStep(3)}>Next →</button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {store.step===3 && (
+            <section className="card">
+              <h3>🧭 Step 3 – Converge and Reflect</h3>
+              <div className="grid">
+                <Question id="s3-top3" label="Which three options make you feel most alive?" answers={store.answers} setAnswers={setAnswers}/>
+                <Question id="s3-competence" label="Which combine curiosity and competence?" answers={store.answers} setAnswers={setAnswers}/>
+                <Question id="s3-experiment" label="One small experiment you could run next month?" answers={store.answers} setAnswers={setAnswers}/>
+                <Question id="s3-who" label="Who could you talk to (role models, peers, contacts)?" answers={store.answers} setAnswers={setAnswers}/>
+                <div style={{display:"flex",justifyContent:"space-between"}}>
+                  <button onClick={()=>setStep(2)}>← Back</button>
+                  <button className="primary" onClick={()=>setStep(4)}>Finish →</button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {store.step===4 && (
+            <section className="card">
+              <h3>📝 Report</h3>
+              <p className="hint">Your reflections are saved locally in your browser. Copy anything you want to keep elsewhere.</p>
+              <pre style={{whiteSpace:"pre-wrap",background:"#f8fafc",padding:12,borderRadius:10,border:"1px solid #e5e7eb"}}>
+{JSON.stringify(store.answers,null,2)}
+              </pre>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <button onClick={()=>setStep(3)}>← Back</button>
+                <button className="danger" onClick={resetAll}>Start Over</button>
+              </div>
+            </section>
+          )}
+        </>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App/>);
+  </script>
+</body>
+</html>
