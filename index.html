@@ -1,22 +1,76 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Career Exploration Canvas</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:#f7f7fb;color:#111;margin:0;padding:24px;min-height:100vh}
-    .wrap{max-width:1100px;margin:0 auto}
-    h1{margin:0 0 8px}
-    p{color:#6b7280;margin:0 0 12px}
-    button{padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
-    button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
-    button.danger{background:#ef4444;color:#fff;border-color:#ef4444}
-    .progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-bottom:12px}
-    .progress div{height:100%;background:#2563eb;width:0%}
-    .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
-    .tab{padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;cursor:pointer}
-    .tab.active{background:#2563eb;color:#fff;border-color:#2563eb}
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;
+      background: #f7f7fb;
+      color: #111;
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 8px;
+    }
+    p {
+      color: #6b7280;
+      margin: 0 0 12px;
+    }
+    button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      cursor: pointer;
+    }
+    button.primary {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
+    button.danger {
+      background: #ef4444;
+      color: #fff;
+      border-color: #ef4444;
+    }
+    .progress {
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .progress div {
+      height: 100%;
+      background: #2563eb;
+      width: 0%;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .tab {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      cursor: pointer;
+    }
+    .tab.active {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
   </style>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
@@ -25,52 +79,107 @@
 <body>
   <div class="wrap" id="root"></div>
   <script type="text/babel">
-    const { useState,useEffect,useMemo } = React;
-    const STORAGE="cec_store_v5";
-    const uid=()=>Math.random().toString(36).slice(2,9);
-    const emptyStore=()=>({step:1,answers:{},options:[],criteria:[],ratings:{},plan:[]});
+    const { useState, useEffect } = React;
+    const STORAGE = "cec_store_v5";
+    const uid = () => Math.random().toString(36).slice(2, 9);
+    const emptyStore = () => ({ step: 1, answers: {}, options: [], criteria: [], ratings: {}, plan: [] });
 
-    const Button=({children,variant="default",...rest})=>{
-      const base={padding:"8px 12px",borderRadius:8,border:"1px solid #e5e7eb",background:"#fff",cursor:"pointer"};
-      const variants={primary:{background:"#2563eb",color:"#fff",borderColor:"#2563eb"},danger:{background:"#ef4444",color:"#fff",borderColor:"#ef4444"}};
-      const style={...base,...(variant!="default"?variants[variant]:{}),...(rest.style||{})};
-      return <button {...rest} style={style}>{children}</button>;
+    const Button = ({ children, variant = "default", ...rest }) => {
+      const base = {
+        padding: "8px 12px",
+        borderRadius: 8,
+        border: "1px solid #e5e7eb",
+        background: "#fff",
+        cursor: "pointer",
+      };
+      const variants = {
+        primary: { background: "#2563eb", color: "#fff", borderColor: "#2563eb" },
+        danger: { background: "#ef4444", color: "#fff", borderColor: "#ef4444" },
+      };
+      const style = { ...base, ...(variant !== "default" ? variants[variant] : {}), ...(rest.style || {}) };
+      return (
+        <button {...rest} style={style}>
+          {children}
+        </button>
+      );
     };
 
-    function App(){
-      const [store,setStore]=useState(()=>{try{const raw=localStorage.getItem(STORAGE);return raw?JSON.parse(raw):emptyStore();}catch{return emptyStore();}});
-      useEffect(()=>{try{localStorage.setItem(STORAGE,JSON.stringify(store));}catch{}},[store]);
-      const progress=(store.step/4)*100;
-      const resetAll=()=>{const fresh=emptyStore();try{localStorage.setItem(STORAGE,JSON.stringify(fresh));}catch{};setStore(fresh);};
+    function App() {
+      const [store, setStore] = useState(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE);
+          return raw ? JSON.parse(raw) : emptyStore();
+        } catch {
+          return emptyStore();
+        }
+      });
+
+      useEffect(() => {
+        try {
+          localStorage.setItem(STORAGE, JSON.stringify(store));
+        } catch {}
+      }, [store]);
+
+      const progress = (store.step / 4) * 100;
+      const resetAll = () => {
+        const fresh = emptyStore();
+        try {
+          localStorage.setItem(STORAGE, JSON.stringify(fresh));
+        } catch {}
+        setStore(fresh);
+      };
+
       return (
         <div>
           <h1>Career Exploration Canvas</h1>
           <p>Guided reflection to expand possibilities, gain clarity, and choose directions.</p>
-          <div class="progress"><div style={{width:progress+"%"}}></div></div>
+          <div class="progress">
+            <div style={{ width: progress + "%" }}></div>
+          </div>
           <div class="tabs">
-            {[1,2,3,4].map(s=>{
-              const active=store.step===s;
-              const labels=["🌍 Step 1","🎯 Step 2","🧭 Step 3","📝 Report"];
-              return <button key={s} onClick={()=>setStore(st=>({...st,step:s}))} class={"tab "+(active?"active":"")} >{labels[s-1]}</button>;
+            {[1, 2, 3, 4].map((s) => {
+              const active = store.step === s;
+              const labels = ["🌍 Step 1", "🎯 Step 2", "🧭 Step 3", "📝 Report"];
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStore((st) => ({ ...st, step: s }))}
+                  class={"tab " + (active ? "active" : "")}
+                >
+                  {labels[s - 1]}
+                </button>
+              );
             })}
-            <div style={{marginLeft:"auto"}}></div>
-            <Button variant="danger" onClick={resetAll}>Reset</Button>
+            <div style={{ marginLeft: "auto" }}></div>
+            <Button variant="danger" onClick={resetAll}>
+              Reset
+            </Button>
           </div>
           <div>
-            {store.step===1&&<h3>🌍 Step 1 – Expand the Map</h3>}
-            {store.step===2&&<h3>🎯 Step 2 – Define Your Criteria</h3>}
-            {store.step===3&&<h3>🧭 Step 3 – Converge and Reflect</h3>}
-            {store.step===4&&<h3>📝 Report</h3>}
+            {store.step === 1 && <h3>🌍 Step 1 – Expand the Map</h3>}
+            {store.step === 2 && <h3>🎯 Step 2 – Define Your Criteria</h3>}
+            {store.step === 3 && <h3>🧭 Step 3 – Converge and Reflect</h3>}
+            {store.step === 4 && <h3>📝 Report</h3>}
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:16}}>
-            <Button disabled={store.step===1} onClick={()=>setStore(st=>({...st,step:Math.max(1,st.step-1)}))}>Back</Button>
-            <Button variant="primary" onClick={()=>setStore(st=>({...st,step:Math.min(4,st.step+1)}))}>{store.step<4?"Next":"Finish"}</Button>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+            <Button
+              disabled={store.step === 1}
+              onClick={() => setStore((st) => ({ ...st, step: Math.max(1, st.step - 1) }))}
+            >
+              Back
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => setStore((st) => ({ ...st, step: Math.min(4, st.step + 1) }))}
+            >
+              {store.step < 4 ? "Next" : "Finish"}
+            </Button>
           </div>
         </div>
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>
