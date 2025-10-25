@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Career Exploration Canvas</title>
   <style>
-    :root{--bg:#f7f7fb;--card:#ffffff;--text:#1f2937;--muted:#6b7280;--brand:#2563eb;--line:#e5e7eb;--accent:#f1f5f9}
+    :root{--bg:#f7f7fb;--card:#ffffff;--text:#111827;--muted:#6b7280;--brand:#2563eb;--line:#e5e7eb;--accent:#f1f5f9}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
-    .wrap{max-width:1100px;margin:0 auto;padding:24px}
-    header h1{margin:0 0 6px 0;font-size:24px}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    .wrap{min-height:100vh;max-width:1100px;margin:0 auto;padding:24px}
+    header h1{margin:0 0 6px;font-size:24px}
     header p{margin:0;color:var(--muted)}
     .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
     button{appearance:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
     button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
-    button.ghost{background:transparent}
     button.danger{background:#ef4444;color:#fff;border-color:#ef4444}
     button:disabled{opacity:.6;cursor:not-allowed}
     .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
@@ -25,7 +25,7 @@
     .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
     .row{display:flex;gap:8px}
     .row > *{flex:1}
-    input,textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+    input,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
     textarea{min-height:90px}
     .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--accent);border-radius:999px;padding:6px 10px;margin:4px 6px 0 0}
     .grid{display:grid;gap:12px}
@@ -37,8 +37,10 @@
     .stars .off{color:#d1d5db}
     .hint{color:var(--muted);font-size:14px}
     .footer{display:flex;justify-content:space-between;margin-top:16px}
+    .infobox{display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:8px;background:#f8fafc}
+    .kicker{font-size:12px;color:#475569;margin:0}
   </style>
-  <!-- React + ReactDOM + Babel (for JSX in browser) -->
+  <!-- React + ReactDOM + Babel (JSX in the browser; no build needed) -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -49,13 +51,39 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    const STORAGE = "cec_store_v3";
+    const STORAGE = "cec_store_v5";
     const uid = () => Math.random().toString(36).slice(2,9);
     const emptyStore = () => ({ step:1, answers:{}, options:[], criteria:[], ratings:{}, plan:[] });
 
+    function Stars({value,onChange}){
+      const arr = [1,2,3,4,5];
+      return (
+        <div className="stars">
+          {arr.map(i=>(
+            <button key={i}
+              className={value>=i? "on":"off"}
+              onClick={()=>onChange(i)}
+              aria-label={`rate ${i}`}>
+              ★
+            </button>
+          ))}
+        </div>
+      );
+    }
+
+    function Question({id,text,value,onChange}){
+      return (
+        <div className="card">
+          <div style={{fontWeight:600,marginBottom:6}}>{text}</div>
+          <textarea value={value} onChange={e=>onChange(id, e.target.value)} placeholder="Write your response here..."/>
+        </div>
+      );
+    }
+
     function App(){
-      const [store, setStore] = useState(()=> {
-        try{ const raw = localStorage.getItem(STORAGE); return raw? JSON.parse(raw) : emptyStore(); } catch { return emptyStore(); }
+      const [store, setStore] = useState(()=>{
+        try{ const raw = localStorage.getItem(STORAGE); return raw ? JSON.parse(raw) : emptyStore(); }
+        catch { return emptyStore(); }
       });
       useEffect(()=>{ try{ localStorage.setItem(STORAGE, JSON.stringify(store)); }catch{} }, [store]);
 
@@ -66,8 +94,8 @@
           const r = store.ratings[opt.id] || {};
           let score = 0, wsum = 0;
           for(const c of store.criteria){
-            const v = r[c.id] ?? 0;
-            const w = (c.weight||0)/100;
+            const v = r[c.id] ?? 0;      // 0..5
+            const w = (c.weight||0)/100; // 0..1
             score += v*w; wsum += w;
           }
           const normalized = wsum>0 ? score/wsum : 0;
@@ -76,16 +104,18 @@
         return rows.sort((a,b)=>b.score-a.score);
       }, [store.options, store.criteria, store.ratings]);
 
+      // navigation
       const setStep = s => setStore(st=>({...st, step:s}));
       const nextStep = () => setStore(st=>({...st, step: st.step<4 ? st.step+1 : st.step}));
 
+      // mutations
       const setAnswer = (id,v)=> setStore(st=>({...st, answers:{...st.answers, [id]:v}}));
-      const addOption = (title) => {
+      const addOption = (title)=>{
         if(!String(title).trim()) return;
         const id = uid();
         setStore(st=>({
           ...st,
-          options:[...st.options, {id, title:title.trim()}],
+          options:[...st.options,{ id, title:title.trim() }],
           ratings:{...st.ratings, [id]:{}},
           plan:[...st.plan, { optionId:id, selected:false, essence:"", firstStep:"" }]
         }));
@@ -94,19 +124,26 @@
         ...st,
         options: st.options.filter(o=>o.id!==id),
         ratings: Object.fromEntries(Object.entries(st.ratings).filter(([k])=>k!==id)),
-        plan: st.plan.filter(p=>p.optionId!==id),
+        plan: st.plan.filter(p=>p.optionId!==id)
       }));
-      const addCriterion = name => {
+      const addCriterion = name=>{
         if(!String(name).trim()) return;
         const id = uid();
-        setStore(st=>({...st, criteria:[...st.criteria, {id, name:name.trim(), weight:20}]}));
+        setStore(st=>({...st, criteria:[...st.criteria, { id, name:name.trim(), weight:20 }]}));
       };
       const removeCriterion = id => setStore(st=>({...st, criteria: st.criteria.filter(c=>c.id!==id)}));
       const setWeight = (id,w) => setStore(st=>({...st, criteria: st.criteria.map(c=>c.id===id? {...c, weight:w} : c)}));
       const setRating = (optId, critId, v) => setStore(st=>({...st, ratings:{...st.ratings, [optId]:{...(st.ratings[optId]||{}), [critId]:v}}}));
       const setPlan = (optId, patch) => setStore(st=>({...st, plan: st.plan.map(p=>p.optionId===optId? {...p, ...patch} : p)}));
 
-      const exportJson = () => {
+      // actions
+      const resetAll = ()=> setStore(()=>{
+        const fresh = emptyStore();
+        try{ localStorage.setItem(STORAGE, JSON.stringify(fresh)); }catch{}
+        return fresh;
+      });
+
+      const exportJson = ()=>{
         const data = JSON.stringify(store,null,2);
         const blob = new Blob([data], {type:"application/json"});
         const url = URL.createObjectURL(blob);
@@ -114,34 +151,101 @@
         a.href = url; a.download = "career_exploration_canvas.json"; a.click();
         URL.revokeObjectURL(url);
       };
-      const resetAll = () => setStore(()=> {
-        const fresh = emptyStore();
-        try{ localStorage.setItem(STORAGE, JSON.stringify(fresh)); }catch{}
-        return fresh;
-      });
+
+      const downloadMarkdown = ()=>{
+        // Build a human-friendly report
+        const top4 = totals.slice(0,4);
+        const selected = store.plan.filter(p=>p.selected).map(p=>{
+          const title = store.options.find(o=>o.id===p.optionId)?.title || "(unnamed)";
+          return {title, essence:p.essence, firstStep:p.firstStep};
+        });
+
+        const md = [
+          "# Career Exploration Canvas – Report",
+          "",
+          "## Top Suggestions",
+          top4.length ? top4.map(t=>`- ${t.title} (${t.score.toFixed(2)})`).join("\n") : "- (n/a)",
+          "",
+          "## Your Selections",
+          selected.length ? selected.map(s=>`- **${s.title}**\n  - Essence: ${s.essence||"-"}\n  - First step: ${s.firstStep||"-"}`).join("\n") : "- (none)",
+          "",
+          "## All Options & Scores",
+          store.options.length ? store.options.map(o=>{
+            const t = totals.find(tt=>tt.id===o.id);
+            return `- ${o.title}: ${t ? t.score.toFixed(2) : "0.00"}`;
+          }).join("\n") : "- (none)",
+          "",
+          "## Reflection Answers",
+          ...Object.entries(store.answers).map(([k,v])=>`- **${k}**: ${String(v||'').replace(/\\n/g,' ')}`)
+        ].join("\n");
+
+        const blob = new Blob([md], {type:"text/markdown;charset=utf-8"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "career_exploration_report.md"; a.click();
+        URL.revokeObjectURL(url);
+      };
 
       return (
         <>
           <header>
             <h1>Career Exploration Canvas</h1>
             <p className="hint">Guided reflection to expand possibilities, gain clarity, and choose directions.</p>
+
             <div className="progress"><div style={{width: progress + "%"}}></div></div>
+
             <div className="tabs">
               <div className={"tab " + (store.step===1?"active":"")} onClick={()=>setStep(1)}>🌍 Step 1</div>
               <div className={"tab " + (store.step===2?"active":"")} onClick={()=>setStep(2)}>🎯 Step 2</div>
               <div className={"tab " + (store.step===3?"active":"")} onClick={()=>setStep(3)}>🧭 Step 3</div>
               <div className={"tab " + (store.step===4?"active":"")} onClick={()=>setStep(4)}>📝 Report</div>
+              <div style={{marginLeft:"auto"}}></div>
             </div>
+
             <div className="toolbar">
               <button className="danger" onClick={resetAll}>Reset</button>
               <button onClick={exportJson}>Export JSON</button>
+              <button onClick={downloadMarkdown}>Download Report (Markdown)</button>
             </div>
           </header>
 
-          {store.step===1 && <Step1 answers={store.answers} setAnswer={setAnswer} options={store.options} addOption={addOption} removeOption={removeOption} nextStep={nextStep} />}
-          {store.step===2 && <Step2 criteria={store.criteria} addCriterion={addCriterion} removeCriterion={removeCriterion} setWeight={setWeight} options={store.options} ratings={store.ratings} setRating={setRating} nextStep={nextStep} />}
-          {store.step===3 && <Step3 options={store.options} plan={store.plan} setPlan={setPlan} totals={totals} nextStep={nextStep} />}
-          {store.step===4 && <Report totals={totals} options={store.options} plan={store.plan} />}
+          {store.step===1 && (
+            <Step1
+              answers={store.answers}
+              setAnswer={setAnswer}
+              options={store.options}
+              addOption={addOption}
+              removeOption={removeOption}
+              nextStep={nextStep}
+            />
+          )}
+
+          {store.step===2 && (
+            <Step2
+              criteria={store.criteria}
+              addCriterion={addCriterion}
+              removeCriterion={removeCriterion}
+              setWeight={setWeight}
+              options={store.options}
+              ratings={store.ratings}
+              setRating={setRating}
+              nextStep={nextStep}
+            />
+          )}
+
+          {store.step===3 && (
+            <Step3
+              options={store.options}
+              plan={store.plan}
+              setPlan={setPlan}
+              totals={totals}
+              nextStep={nextStep}
+            />
+          )}
+
+          {store.step===4 && (
+            <Report totals={totals} options={store.options} plan={store.plan} />
+          )}
 
           <div className="footer">
             <button disabled={store.step===1} onClick={()=>setStep(Math.max(1, store.step-1))}>Back</button>
@@ -178,7 +282,7 @@
               {options.map(o=>(
                 <span key={o.id} className="badge">
                   {o.title}
-                  <button className="ghost" onClick={()=>removeOption(o.id)} title="remove">✕</button>
+                  <button title="remove" style={{background:"none",border:"none",cursor:"pointer"}} onClick={()=>removeOption(o.id)}>✕</button>
                 </span>
               ))}
             </div>
@@ -195,9 +299,15 @@
       return (
         <section className="card">
           <h3>🎯 Step 2 – Define Your Criteria</h3>
+          <p className="kicker">Define what truly matters to you. Add your key criteria (e.g., <b>Impact</b>, <b>Growth</b>, <b>Autonomy</b>, <b>Creativity</b>, <b>Learning</b>, <b>Balance</b>) and then rate how well each option fits.</p>
+          <div className="infobox">
+            <div>💡</div>
+            <p className="kicker">Think of a criterion as a principle that makes a role meaningful. Examples: “I want visible impact,” “I need flexibility,” “I want rapid learning.”</p>
+          </div>
+
           <div className="grid">
             <div className="row">
-              <input value={critName} onChange={e=>setCritName(e.target.value)} placeholder="Add a criterion..."/>
+              <input value={critName} onChange={e=>setCritName(e.target.value)} placeholder="Type a criterion (e.g., Growth, Balance, Impact)"/>
               <button onClick={()=>{addCriterion(critName); setCritName("");}}>Add</button>
             </div>
 
@@ -206,7 +316,7 @@
                 <div style={{flex:"0 0 140px"}}>{c.name}</div>
                 <input type="range" min="0" max="100" step="5" value={c.weight} onChange={e=>setWeight(c.id, Number(e.target.value))}/>
                 <span style={{width:48,textAlign:"right"}}>{c.weight}%</span>
-                <button className="ghost" onClick={()=>removeCriterion(c.id)}>Remove</button>
+                <button onClick={()=>removeCriterion(c.id)}>Remove</button>
               </div>
             ))}
 
@@ -253,7 +363,7 @@
               return (
                 <div key={t.id} className="card">
                   <div className="row" style={{alignItems:"center"}}>
-                    <div style={{fontWeight:600}}>{title}</div>
+                    <div style={{fontWeight:600}}>{title} <span className="hint">({t.score.toFixed(2)})</span></div>
                     <label style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
                       <input type="checkbox" checked={!!p.selected} onChange={e=>setPlan(t.id,{selected:e.target.checked})}/> Select
                     </label>
@@ -310,28 +420,6 @@
             </div>
           </div>
         </section>
-      );
-    }
-
-    function Question({id,text,value,onChange}){
-      return (
-        <div className="card">
-          <div style={{fontWeight:600, marginBottom:6}}>{text}</div>
-          <textarea value={value} onChange={e=>onChange(id, e.target.value)} placeholder="Write your response here..."/>
-        </div>
-      );
-    }
-
-    function Stars({value,onChange}){
-      const arr = [1,2,3,4,5];
-      return (
-        <div className="stars">
-          {arr.map(i=>(
-            <button key={i} className={value>=i? "on":"off"} onClick={()=>onChange(i)} aria-label={`rate ${i}`}>
-              ★
-            </button>
-          ))}
-        </div>
       );
     }
 
